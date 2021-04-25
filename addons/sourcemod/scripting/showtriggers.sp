@@ -3,6 +3,8 @@
 #include <sdkhooks>
 #include <sdktools>
 
+#include <outputinfo>
+
 #pragma newdecls required
 #pragma semicolon 1
 
@@ -45,6 +47,16 @@ public void OnPluginStart()
 	RegConsoleCmd("sm_st", Command_ShowTriggers, "Command to dynamically toggle trigger visibility.");
 }
 
+public void OnRoundStartPost(Event event, const char[] name, bool dontBroadcast)
+{
+	int entity = -1;
+
+	while ((entity = FindEntityByClassname(entity, "trigger_*")) != -1)
+	{
+		SetTriggerRenderColor(entity);
+	}
+}
+
 public void OnClientPutInServer(int client)
 {
 	gB_ShowTriggers[client] = false;
@@ -85,6 +97,61 @@ public Action Command_ShowTriggers(int client, int args)
 
 	TransmitTriggers(gI_TransmitCount > 0);
 	return Plugin_Handled;
+}
+
+void SetTriggerRenderColor(int entity)
+{
+	char classname[32];
+	GetEntityClassname(entity, classname, sizeof(classname));
+
+	SetEntityRenderMode(entity, RENDER_TRANSCOLOR);
+	SetEntityRenderColor(entity, 0, 0, 0, 255);
+
+	if (strcmp(classname, "trigger_multiple") == 0)
+	{
+		SetEntityRenderColor(entity, 0, 255, 0, 255);
+
+		char parameter[32];
+		int count = GetOutputActionCount(entity, "m_OnStartTouch");
+
+		for (int i = 0; i < count; i++)
+		{
+			GetOutputActionParameter(entity, "m_OnStartTouch", i, parameter, sizeof(parameter));
+
+			// Gravity anti-prespeed https://gamebanana.com/prefabs/6760.
+			if (strcmp(parameter, "gravity 40") == 0)
+			{
+				SetEntityRenderColor(entity, 127, 255, 0, 255);
+			}
+		}
+
+		count = GetOutputActionCount(entity, "m_OnEndTouch");
+
+		for (int i = 0; i < count; i++)
+		{
+			GetOutputActionParameter(entity, "m_OnEndTouch", i, parameter, sizeof(parameter));
+
+			// Gravity booster https://gamebanana.com/prefabs/6677.
+			if (StrContains(parameter, "gravity -") != -1)
+			{
+				SetEntityRenderColor(entity, 255, 127, 0, 255);
+			}
+
+			// Basevelocity booster https://gamebanana.com/prefabs/7118.
+			if (StrContains(parameter, "basevelocity") != -1)
+			{
+				SetEntityRenderColor(entity, 255, 127, 0, 255);
+			}
+		}
+	}
+	else if (strcmp(classname, "trigger_push")  == 0)
+	{
+		SetEntityRenderColor(entity, 255, 127, 0, 255);
+	}
+	else if (strcmp(classname, "trigger_teleport") == 0)
+	{
+		SetEntityRenderColor(entity, 255, 0, 0, 255);
+	}
 }
 
 // https://forums.alliedmods.net/showthread.php?p=2423363
