@@ -8,7 +8,7 @@
 #pragma newdecls required
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "1.1"
+#define PLUGIN_VERSION "2.0.0"
 
 // Entity is completely ignored by the client.
 // Can cause prediction errors if a player proceeds to collide with it on the server.
@@ -24,10 +24,10 @@ int gI_TransmitCount;
 public Plugin myinfo =
 {
 	name = "Show Triggers",
-	author = "ici",
+	author = "ici, Eric",
 	description = "Make trigger brushes visible.",
 	version = PLUGIN_VERSION,
-	url = "http://steamcommunity.com/id/1ci"
+	url = "http://steamcommunity.com/id/1ci & https://steamcommunity.com/id/-eric"
 };
 
 public void OnPluginStart()
