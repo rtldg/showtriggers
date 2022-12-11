@@ -149,12 +149,10 @@ void SetTriggerRenderColor(int entity)
 
 	if (strcmp(classname, "trigger_multiple") == 0)
 	{
-		int color;
 		char hammerid[12];
 		IntToString(GetEntProp(entity, Prop_Data, "m_iHammerID"), hammerid, sizeof(hammerid));
-
-		if (!gSM_HammerIdToColor.GetValue(hammerid, color))
-			color = 0x00FF00FF; // 0 255 0 255
+		int color = 0x00FF00FF; // 0 255 0 255
+		gSM_HammerIdToColor.GetValue(hammerid, color);
 
 		SetEntityRenderColor(
 			entity,
