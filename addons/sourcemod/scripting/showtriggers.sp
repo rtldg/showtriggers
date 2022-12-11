@@ -1,14 +1,12 @@
 #include <sourcemod>
-
+#include <entitylump>
 #include <sdkhooks>
 #include <sdktools>
-
-#include <outputinfo>
 
 #pragma newdecls required
 #pragma semicolon 1
 
-#define PLUGIN_VERSION "2.0.0"
+#define PLUGIN_VERSION "2.1.0"
 
 // Entity is completely ignored by the client.
 // Can cause prediction errors if a player proceeds to collide with it on the server.
@@ -21,17 +19,21 @@ bool gB_ShowTriggers[MAXPLAYERS+1];
 // Used to determine whether to avoid unnecessary SetTransmit hooks.
 int gI_TransmitCount;
 
+StringMap gSM_HammerIdToColor = null;
+
 public Plugin myinfo =
 {
 	name = "Show Triggers",
-	author = "ici, Eric",
+	author = "ici, Eric, rtldg",
 	description = "Make trigger brushes visible.",
 	version = PLUGIN_VERSION,
-	url = "http://steamcommunity.com/id/1ci & https://steamcommunity.com/id/-eric"
+	url = "https://github.com/ecsr/showtriggers"
 };
 
 public void OnPluginStart()
 {
+	gSM_HammerIdToColor = new StringMap();
+
 	gI_EffectsOffset = FindSendPropInfo("CBaseEntity", "m_fEffects");
 
 	if (gI_EffectsOffset == -1)
@@ -45,6 +47,51 @@ public void OnPluginStart()
 
 	RegConsoleCmd("sm_showtriggers", Command_ShowTriggers, "Command to dynamically toggle trigger visibility.");
 	RegConsoleCmd("sm_st", Command_ShowTriggers, "Command to dynamically toggle trigger visibility.");
+}
+
+public void OnMapStart()
+{
+	gSM_HammerIdToColor.Clear();
+
+	for (int i, n = EntityLump.Length(); i < n; i++)
+	{
+		EntityLumpEntry entry = EntityLump.Get(i);
+		char buffer[100], hammerid[12];
+
+		if (-1 == entry.GetNextKey("classname", buffer, sizeof(buffer))
+		||  !StrEqual(buffer, "trigger_multiple")
+		||  -1 == entry.GetNextKey("hammerid", hammerid, sizeof(hammerid)))
+		{
+			delete entry;
+			continue;
+		}
+
+		int color = 0;
+
+		for (int start = -1; -1 != (start = entry.GetNextKey("OnStartTouch", buffer, sizeof(buffer), start)); )
+		{
+			int pos = StrContains(buffer, "gravity ");
+
+			if (pos != -1 && '1' <= buffer[pos+8] <= '9')
+			{
+				color = 0x7FFF00FF; // 127 255 0 255
+				break;
+			}
+		}
+
+		for (int start = -1; -1 != (start = entry.GetNextKey("OnEndTouch", buffer, sizeof(buffer), start)); )
+		{
+			if (-1 != StrContains(buffer, "gravity -")
+			||  -1 != StrContains(buffer, "basevelocity"))
+			{
+				color = 0xFF7F00FF; // 255 127 0 255
+				break;
+			}
+		}
+
+		delete entry;
+		if (color) gSM_HammerIdToColor.SetValue(hammerid, color);
+	}
 }
 
 public void OnRoundStartPost(Event event, const char[] name, bool dontBroadcast)
@@ -105,44 +152,21 @@ void SetTriggerRenderColor(int entity)
 	GetEntityClassname(entity, classname, sizeof(classname));
 
 	SetEntityRenderMode(entity, RENDER_TRANSCOLOR);
-	SetEntityRenderColor(entity, 0, 0, 0, 255);
 
 	if (strcmp(classname, "trigger_multiple") == 0)
 	{
-		SetEntityRenderColor(entity, 0, 255, 0, 255);
+		char hammerid[12];
+		IntToString(GetEntProp(entity, Prop_Data, "m_iHammerID"), hammerid, sizeof(hammerid));
+		int color = 0x00FF00FF; // 0 255 0 255
+		gSM_HammerIdToColor.GetValue(hammerid, color);
 
-		char parameter[32];
-		int count = GetOutputActionCount(entity, "m_OnStartTouch");
-
-		for (int i = 0; i < count; i++)
-		{
-			GetOutputActionParameter(entity, "m_OnStartTouch", i, parameter, sizeof(parameter));
-
-			// Gravity anti-prespeed https://gamebanana.com/prefabs/6760.
-			if (strcmp(parameter, "gravity 40") == 0)
-			{
-				SetEntityRenderColor(entity, 127, 255, 0, 255);
-			}
-		}
-
-		count = GetOutputActionCount(entity, "m_OnEndTouch");
-
-		for (int i = 0; i < count; i++)
-		{
-			GetOutputActionParameter(entity, "m_OnEndTouch", i, parameter, sizeof(parameter));
-
-			// Gravity booster https://gamebanana.com/prefabs/6677.
-			if (StrContains(parameter, "gravity -") != -1)
-			{
-				SetEntityRenderColor(entity, 255, 127, 0, 255);
-			}
-
-			// Basevelocity booster https://gamebanana.com/prefabs/7118.
-			if (StrContains(parameter, "basevelocity") != -1)
-			{
-				SetEntityRenderColor(entity, 255, 127, 0, 255);
-			}
-		}
+		SetEntityRenderColor(
+			entity,
+			(color >> 24) & 0xFF,
+			(color >> 16) & 0xFF,
+			(color >>  8) & 0xFF,
+			(color      ) & 0xFF
+		);
 	}
 	else if (strcmp(classname, "trigger_push")  == 0)
 	{
@@ -151,6 +175,10 @@ void SetTriggerRenderColor(int entity)
 	else if (strcmp(classname, "trigger_teleport") == 0)
 	{
 		SetEntityRenderColor(entity, 255, 0, 0, 255);
+	}
+	else
+	{
+		SetEntityRenderColor(entity, 0, 0, 0, 255);
 	}
 }
 
