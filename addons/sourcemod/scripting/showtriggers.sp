@@ -57,9 +57,14 @@ public void OnMapStart()
 	{
 		EntityLumpEntry entry = EntityLump.Get(i);
 		char buffer[100], hammerid[12];
-		if (-1 == entry.GetNextKey("classname", buffer, sizeof(buffer))) continue;
-		if (!StrEqual(buffer, "trigger_multiple")) continue;
-		if (-1 == entry.GetNextKey("hammerid", hammerid, sizeof(hammerid))) continue;
+
+		if (-1 == entry.GetNextKey("classname", buffer, sizeof(buffer))
+		||  !StrEqual(buffer, "trigger_multiple")
+		||  -1 == entry.GetNextKey("hammerid", hammerid, sizeof(hammerid)))
+		{
+			delete entry;
+			continue;
+		}
 
 		int color = 0;
 
@@ -84,6 +89,7 @@ public void OnMapStart()
 			}
 		}
 
+		delete entry;
 		if (color) gSM_HammerIdToColor.SetValue(hammerid, color);
 	}
 }
